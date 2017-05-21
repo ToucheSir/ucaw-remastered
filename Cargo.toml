@@ -1,0 +1,7 @@
+[package]
+name = "ucaw-remastered"
+version = "0.1.0"
+authors = ["brianc <thehbc@uvic.ca>"]
+
+[dependencies]
+piston_window = "0.61.0"
