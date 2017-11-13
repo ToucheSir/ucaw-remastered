@@ -19,14 +19,10 @@ struct Sprite<I: ImageSize> {
 impl <I: ImageSize> Sprite<I> {
     fn new(texture: Rc<I>, x: u32, y: u32, width: u32, height: u32, frames: u32, frame_interval: f32) -> Self {
         Sprite {
-            texture: texture,
-            x: x,
-            y: y,
-            width: width,
-            height: height,
-            frames: frames,
+            texture,
+            x, y, width, height,
+            frames, frame_interval,
             current_frame: 0,
-            frame_interval: frame_interval,
             accum_dt: 0.0,
         }
     }
@@ -40,12 +36,15 @@ impl <I: ImageSize> Sprite<I> {
     }
 
     fn draw<G: Graphics<Texture=I>>(&self, transform: math::Matrix2d, g: &mut G) {
+        let transform = transform.trans(-(self.width as f64) / 2.0, -(self.height as f64) / 2.0);
         Image::new().src_rect([
             (self.x + self.width * self.current_frame) as f64, 
             self.y as f64, self.width as f64, self.height as f64
         ]).draw(self.texture.as_ref(), &DrawState::default(), transform, g);
     }
 }
+
+enum Direction { Forward, Reverse, None }
 
 fn main() {
     let mut window: PistonWindow = WindowSettings::new("Hello Piston!", [1280, 720])
@@ -73,24 +72,32 @@ fn main() {
     // let mut sprite = Sprite::new(Rc::new(test_img), 0, 0, 88, 68, 6, 0.15);
     let sprite_width = sprite.width as f64;
     let sprite_height = sprite.height as f64;
-    let square = rectangle::rectangle_by_corners(0.0, 0.0, sprite_width, sprite_height);
+    // let square = rectangle::rectangle_by_corners(0.0, 0.0, sprite_width, sprite_height);
     
     let mut pos: math::Vec2d = [0.0, 360.0];
+    let mut rotation = 0.0;
+    let mut dir = Direction::None;
 
     while let Some(e) = window.next() {
         window.draw_2d(&e, |c, g| {
             clear(WHITE, g);
              
             line(BLACK, 1.0, [0.0, 360.0, 1280.0, 360.0], c.transform, g);
-
-            let transform = c.transform.trans(pos[0], pos[1]);
-            rectangle(RED, square, transform, g);
+            let transform = c.transform.trans(pos[0], pos[1])
+                .rot_rad(rotation);
+            // rectangle(RED, square, transform, g);
             // image(&test_img, transform, g);
             sprite.draw(transform, g);
         });
 
         e.update(|args| {
             sprite.update(args.dt);
+            let velocity = math::mul([rotation.cos(), rotation.sin()], match dir {
+                Direction::Forward => [1.0, 1.0],
+                Direction::Reverse => [-1.0, -1.0],
+                Direction::None => [0.0, 0.0]
+            });
+            pos = math::add(pos, velocity);
         });
 
         e.press(|button| {
@@ -98,10 +105,29 @@ fn main() {
                 Button::Keyboard(key) => {
                     match key {
                         Key::W => {
-                            pos[1] -= 1.0;
+                            dir = Direction::Forward;
                         }
                         Key::S => {
-                            pos[1] += 1.0;
+                            dir = Direction::Reverse;
+                        }
+                        Key::A => {
+                            rotation -= 0.1;
+                        }
+                        Key::D => {
+                            rotation += 0.1;
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        });
+        e.release(|button| {
+            match button {
+                Button::Keyboard(key) => {
+                    match key {
+                        Key::W | Key::S => {
+                            dir = Direction::None;
                         }
                         _ => {}
                     }
