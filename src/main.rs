@@ -1,8 +1,17 @@
 extern crate piston_window;
 extern crate find_folder;
+extern crate nphysics2d;
+extern crate ncollide;
+extern crate nalgebra as na;
 
 use piston_window::*;
 use std::rc::Rc;
+use na::{Vector2, Translation2};
+use nphysics2d::world::World;
+use nphysics2d::math::{Vector};
+use nphysics2d::object::RigidBody;
+use nphysics2d::integration::euler;
+use ncollide::shape::Ball;
 
 struct Sprite<I: ImageSize> {
     texture: Rc<I>,
@@ -45,6 +54,7 @@ impl <I: ImageSize> Sprite<I> {
 }
 
 enum Direction { Forward, Reverse, None }
+enum Rotation { Left, Right, None }
 
 fn main() {
     let mut window: PistonWindow = WindowSettings::new("Hello Piston!", [1280, 720])
@@ -67,6 +77,15 @@ fn main() {
         Flip::None,
         &TextureSettings::new()
     ).unwrap();
+    
+    let pos: math::Vec2d = [20.0, 360.0];
+    let mut dir = Direction::None;
+    let mut rot = Rotation::None;
+
+    let mut world = World::new();
+    let mut ship = RigidBody::new_dynamic(Ball::new(16.0), 1.0, 0.3, 0.01);
+    ship.append_translation(&Translation2::new(pos[0], pos[1]));
+    let ship = world.add_rigid_body(ship);
 
     let mut sprite = Sprite::new(Rc::new(test_img), 0, 0, 32, 32, 12, 0.1);
     // let mut sprite = Sprite::new(Rc::new(test_img), 0, 0, 88, 68, 6, 0.15);
@@ -74,16 +93,17 @@ fn main() {
     let sprite_height = sprite.height as f64;
     // let square = rectangle::rectangle_by_corners(0.0, 0.0, sprite_width, sprite_height);
     
-    let mut pos: math::Vec2d = [0.0, 360.0];
-    let mut rotation = 0.0;
-    let mut dir = Direction::None;
 
     while let Some(e) = window.next() {
         window.draw_2d(&e, |c, g| {
             clear(WHITE, g);
              
             line(BLACK, 1.0, [0.0, 360.0, 1280.0, 360.0], c.transform, g);
-            let transform = c.transform.trans(pos[0], pos[1])
+            let bship = ship.borrow();
+            let pos = bship.position();
+            let translation = pos.translation.vector;
+            let rotation = pos.rotation.angle();
+            let transform = c.transform.trans(translation.x, translation.y)
                 .rot_rad(rotation);
             // rectangle(RED, square, transform, g);
             // image(&test_img, transform, g);
@@ -92,12 +112,43 @@ fn main() {
 
         e.update(|args| {
             sprite.update(args.dt);
-            let velocity = math::mul([rotation.cos(), rotation.sin()], match dir {
-                Direction::Forward => [1.0, 1.0],
-                Direction::Reverse => [-1.0, -1.0],
+            world.step(args.dt);
+            let mut bship = ship.borrow_mut();
+            bship.clear_forces();
+            // match dir {
+            //     Direction::Forward => bship.append_lin_force(Vector::from([1.0, 1.0])),
+            //     Direction::Reverse => bship.append_lin_force(Vector::from([-1.0, -1.0])),
+            //     Direction::None => {}
+            // }
+            let mut dir_vec = Vector::from(match dir {
+                Direction::Forward => [4000.0, 0.0],
+                Direction::Reverse => [-4000.0, 0.0],
                 Direction::None => [0.0, 0.0]
             });
-            pos = math::add(pos, velocity);
+            bship.position().rotation.rotate(&mut dir_vec);
+            bship.append_lin_force(dir_vec);
+            
+            // calculate drag
+            let lin_vel = bship.lin_vel();
+            let Cd = 0.05;
+            let A = 1.5;
+            // fluid density of air
+            let p = 1.25;
+            let drag_force = -0.5 * p * Cd * A * (lin_vel.component_mul(&lin_vel));
+            bship.append_lin_force(drag_force)
+
+            // bship.append_lin_force(Vector::from(math::mul([rotation.cos(), rotation.sin()], );
+            // match rot {
+            //     Direction::Left => [1.0, 1.0],
+            //     Direction::Right => [-1.0, -1.0],
+            //     Direction::None => {}
+            // }
+            // let velocity = math::mul([rotation.cos(), rotation.sin()], match dir {
+            //     Direction::Forward => [1.0, 1.0],
+            //     Direction::Reverse => [-1.0, -1.0],
+            //     Direction::None => [0.0, 0.0]
+            // });
+            // pos = math::add(pos, velocity);
         });
 
         e.press(|button| {
@@ -111,10 +162,10 @@ fn main() {
                             dir = Direction::Reverse;
                         }
                         Key::A => {
-                            rotation -= 0.1;
+                            rot = Rotation::Left;
                         }
                         Key::D => {
-                            rotation += 0.1;
+                            rot = Rotation::Right;
                         }
                         _ => {}
                     }
@@ -128,6 +179,9 @@ fn main() {
                     match key {
                         Key::W | Key::S => {
                             dir = Direction::None;
+                        }
+                        Key::A | Key::D => {
+                            rot = Rotation::None;
                         }
                         _ => {}
                     }

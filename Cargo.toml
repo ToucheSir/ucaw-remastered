@@ -4,5 +4,10 @@ version = "0.1.0"
 authors = ["brianc <thehbc@uvic.ca>"]
 
 [dependencies]
+piston = "0.35.0"
+piston2d-graphics = "0.23.0"
 piston_window = "0.61.0"
 find_folder = "0.3.0"
+nphysics2d = "0.7.2"
+nalgebra = "0.13.0"
+ncollide = "0.13.0"
