@@ -5,9 +5,20 @@ authors = ["brianc <thehbc@uvic.ca>"]
 
 [dependencies]
 piston = "0.35.0"
-piston2d-graphics = "0.23.0"
-piston_window = "0.61.0"
+piston2d-graphics = "0.24.0"
+piston_window = "0.74.0"
 find_folder = "0.3.0"
 nphysics2d = "0.7.2"
 nalgebra = "0.13.0"
 ncollide = "0.13.0"
+notify = "4.0.0"
+
+# The core APIs, including the Serialize and Deserialize traits. Always
+# required when using Serde.
+serde = "1.0"
+
+# Support for #[derive(Serialize, Deserialize)]. Required if you want Serde
+# to work for structs and enums defined in your crate.
+serde_derive = "1.0"
+
+toml = "0.4"
